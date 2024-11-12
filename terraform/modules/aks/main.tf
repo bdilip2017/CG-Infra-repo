@@ -1,26 +1,13 @@
-resource "azurerm_kubernetes_cluster" "aks" {
-  name                = var.aks_name
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  dns_prefix          = var.aks_name
+# Role assignment for Contributor group
+resource "azurerm_role_assignment" "aks_contributor" {
+  scope                = var.resource_id
+  role_definition_name = "Contributor"
+  principal_id         = var.contributor_group_id
+}
 
-  default_node_pool {
-    name               = "nodepool"
-    vm_size            = "Standard_DS2_v2"
-    enable_auto_scaling = true
-    min_count          = 2
-    max_count          = 5
-    vnet_subnet_id     = var.vnet_subnet_id
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  addon_profile {
-    oms_agent {
-      enabled = true
-      log_analytics_workspace_id = var.log_analytics_workspace_id
-    }
-  }
+# Role assignment for Reader group
+resource "azurerm_role_assignment" "aks_reader" {
+  scope                = var.resource_id
+  role_definition_name = "Reader"
+  principal_id         = var.reader_group_id
 }

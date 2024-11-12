@@ -33,3 +33,13 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "contributor_group_id" {
+  description = "Object ID for the Contributor AAD group"
+  type        = string
+}
+
+variable "reader_group_id" {
+  description = "Object ID for the Reader AAD group"
+  type        = string
+}
