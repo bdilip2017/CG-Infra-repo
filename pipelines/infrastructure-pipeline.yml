@@ -3,15 +3,113 @@ trigger:
     include:
       - main
 
-pool:
-  vmImage: 'ubuntu-latest'
+# Define pipeline parameters for environment selection
+parameters:
+  - name: environment
+    displayName: "Select Environment"
+    type: string
+    default: "dev"
+    values:
+      - dev
+      - staging
+      - prod
 
-steps:
-  - checkout: self
-  - task: TerraformInstaller@0
-    inputs:
-      terraformVersion: '1.0.0'
-  - script: |
-      terraform init
-      terraform apply -auto-approve
-    displayName: 'Terraform Init and Apply'
+stages:
+  - stage: Init
+    displayName: "Terraform Init Stage"
+    jobs:
+      - job: Init
+        displayName: "Initialize Terraform for $(environment)"
+        pool:
+          vmImage: 'ubuntu-latest'
+        
+        steps:
+          - task: UseAzureCLI@2
+            inputs:
+              azureSubscription: 'your-azure-subscription'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Set environment-specific backend config and var files
+                if [[ "${{ parameters.environment }}" == "dev" ]]; then
+                  BACKEND_CONFIG_FILE="backend-config-dev.conf"
+                elif [[ "${{ parameters.environment }}" == "staging" ]]; then
+                  BACKEND_CONFIG_FILE="backend-config-staging.conf"
+                elif [[ "${{ parameters.environment }}" == "prod" ]]; then
+                  BACKEND_CONFIG_FILE="backend-config-prod.conf"
+                else
+                  echo "Invalid environment selected"
+                  exit 1
+                fi
+
+                # Initialize Terraform with the selected backend config
+                terraform init -backend-config=$BACKEND_CONFIG_FILE
+
+  - stage: Plan
+    displayName: "Terraform Plan Stage"
+    dependsOn: Init
+    jobs:
+      - job: Plan
+        displayName: "Plan Terraform for $(environment)"
+        pool:
+          vmImage: 'ubuntu-latest'
+
+        steps:
+          - task: UseAzureCLI@2
+            inputs:
+              azureSubscription: 'your-azure-subscription'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Select environment-specific tfvars file
+                if [[ "${{ parameters.environment }}" == "dev" ]]; then
+                  TFVARS_FILE="dev.tfvars"
+                elif [[ "${{ parameters.environment }}" == "staging" ]]; then
+                  TFVARS_FILE="staging.tfvars"
+                elif [[ "${{ parameters.environment }}" == "prod" ]]; then
+                  TFVARS_FILE="prod.tfvars"
+                else
+                  echo "Invalid environment selected"
+                  exit 1
+                fi
+
+                # Run Terraform plan
+                terraform plan -var-file=$TFVARS_FILE -out=tfplan
+
+          # Publish the Terraform plan as an artifact for review
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: tfplan
+              artifactName: tfplan
+              publishLocation: "pipeline"
+
+  - stage: Apply
+    displayName: "Terraform Apply Stage"
+    dependsOn: Plan
+    jobs:
+      - deployment: Apply
+        displayName: "Apply Terraform for $(environment)"
+        environment: "$(environment)"
+        pool:
+          vmImage: 'ubuntu-latest'
+        
+        # Manual approval step before the apply job
+        strategy:
+          runOnce:
+            preDeploy:
+              - task: ManualValidation@0
+                inputs:
+                  instructions: "Please review the Terraform plan before approving deployment to $(environment)"
+                  onTimeout: "reject"
+                  timeout: "30"  # Timeout for approval in minutes
+
+            deploy:
+              steps:
+                - task: UseAzureCLI@2
+                  inputs:
+                    azureSubscription: 'your-azure-subscription'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      # Apply the previously approved Terraform plan
+                      terraform apply -auto-approve tfplan
