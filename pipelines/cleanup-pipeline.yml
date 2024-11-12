@@ -1,9 +1,107 @@
-steps:
-  - task: AzureCLI@2
-    inputs:
-      azureSubscription: '<Azure-Service-Connection>'
-      scriptType: 'bash'
-      scriptLocation: 'inlineScript'
-      inlineScript: |
-        cd terraform
-        terraform destroy -auto-approve
+trigger: none  # Only trigger this pipeline manually
+
+# Define pipeline parameters to select the environment
+parameters:
+  - name: environment
+    displayName: "Select Environment for Cleanup"
+    type: string
+    default: "dev"
+    values:
+      - dev
+      - staging
+      - prod
+
+stages:
+  - stage: Preview
+    displayName: "Terraform Destroy Preview Stage"
+    jobs:
+      - job: DestroyPreview
+        displayName: "Preview Destroy Plan for $(environment)"
+        pool:
+          vmImage: 'ubuntu-latest'
+
+        steps:
+          - task: UseAzureCLI@2
+            inputs:
+              azureSubscription: 'your-azure-subscription'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                # Set environment-specific backend config and tfvars file
+                if [[ "${{ parameters.environment }}" == "dev" ]]; then
+                  BACKEND_CONFIG_FILE="backend-config-dev.conf"
+                  TFVARS_FILE="dev.tfvars"
+                elif [[ "${{ parameters.environment }}" == "staging" ]]; then
+                  BACKEND_CONFIG_FILE="backend-config-staging.conf"
+                  TFVARS_FILE="staging.tfvars"
+                elif [[ "${{ parameters.environment }}" == "prod" ]]; then
+                  BACKEND_CONFIG_FILE="backend-config-prod.conf"
+                  TFVARS_FILE="prod.tfvars"
+                else
+                  echo "Invalid environment selected"
+                  exit 1
+                fi
+
+                # Initialize Terraform with the selected backend config
+                terraform init -backend-config=$BACKEND_CONFIG_FILE
+
+                # Run Terraform destroy plan and save the output
+                terraform plan -destroy -var-file=$TFVARS_FILE -out=tfplan
+
+          # Publish the destroy plan as an artifact for review
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: tfplan
+              artifactName: tfplan
+              publishLocation: "pipeline"
+
+  - stage: Destroy
+    displayName: "Terraform Destroy Stage"
+    dependsOn: Preview
+    jobs:
+      - deployment: DestroyJob
+        displayName: "Destroy Resources in $(environment)"
+        environment: "$(environment)"
+        pool:
+          vmImage: 'ubuntu-latest'
+        
+        strategy:
+          runOnce:
+            preDeploy:
+              - task: ManualValidation@0
+                inputs:
+                  instructions: "Please review the Terraform destroy plan before approving the deletion for $(environment)."
+                  onTimeout: "reject"
+                  timeout: "30"  # Timeout for approval in minutes
+
+            deploy:
+              steps:
+                - download: tfplan
+                  displayName: "Download Destroy Plan"
+
+                - task: UseAzureCLI@2
+                  inputs:
+                    azureSubscription: 'your-azure-subscription'
+                    scriptType: 'bash'
+                    scriptLocation: 'inlineScript'
+                    inlineScript: |
+                      # Set environment-specific backend config
+                      if [[ "${{ parameters.environment }}" == "dev" ]]; then
+                        BACKEND_CONFIG_FILE="backend-config-dev.conf"
+                        TFVARS_FILE="dev.tfvars"
+                      elif [[ "${{ parameters.environment }}" == "staging" ]]; then
+                        BACKEND_CONFIG_FILE="backend-config-staging.conf"
+                        TFVARS_FILE="staging.tfvars"
+                      elif [[ "${{ parameters.environment }}" == "prod" ]]; then
+                        BACKEND_CONFIG_FILE="backend-config-prod.conf"
+                        TFVARS_FILE="prod.tfvars"
+                      else
+                        echo "Invalid environment selected"
+                        exit 1
+                      fi
+
+                      # Re-initialize Terraform to confirm state configuration
+                      terraform init -backend-config=$BACKEND_CONFIG_FILE
+
+                      # Apply the destroy plan
+                      terraform apply -auto-approve tfplan
