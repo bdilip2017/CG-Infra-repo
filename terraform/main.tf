@@ -1,41 +1,32 @@
-# AKS Cluster with Monitoring and Autoscaling
-resource "azurerm_kubernetes_cluster" "aks" {
-  name                = "aksCluster"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  dns_prefix          = "aksCluster"
-
-  default_node_pool {
-    name       = "default"
-    node_count = 2
-    vm_size    = "Standard_DS2_v2"
-    enable_auto_scaling = true
-    min_count = 1
-    max_count = 5
-  }
-
-  addon_profile {
-    oms_agent {
-      enabled                    = true
-      log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
-    }
-  }
-
-  identity {
-    type = "SystemAssigned"
-  }
-
-  role_based_access_control {
-    enabled = true
-  }
+module "network" {
+  source              = "./modules/network"
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  vnet_name           = var.vnet_name
 }
 
-# PostgreSQL Database
-resource "azurerm_postgresql_server" "db" {
-  name                = "postgresqlserver"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  sku_name            = "GP_Gen5_2"
-  administrator_login = "adminuser"
-  administrator_login_password = "securepassword123!"
+module "aks" {
+  source              = "./modules/aks"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  vnet_subnet_id      = module.network.subnet_id
+  aks_name            = var.aks_name
+  log_analytics_workspace_id = module.log_analytics.workspace_id
+}
+
+module "postgres" {
+  source              = "./modules/postgres"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  db_name             = var.db_name
+  db_user             = var.db_user
+  db_password         = var.db_password
+  vnet_subnet_id      = module.network.subnet_id
+  log_analytics_workspace_id = module.log_analytics.workspace_id
+}
+
+module "log_analytics" {
+  source              = "./modules/log_analytics"
+  resource_group_name = var.resource_group_name
+  location            = var.location
 }
