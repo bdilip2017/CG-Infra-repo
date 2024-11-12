@@ -37,3 +37,12 @@ module "rbac" {
   contributor_group_id = var.contributor_group_id
   reader_group_id      = var.reader_group_id
 }
+
+# Example of calling the policy module to assign policies in a specific resource group
+
+module "policy" {
+  source = "./modules/policy"
+  
+  # Specify the scope for the policy assignment (e.g., resource group ID)
+  scope = azurerm_resource_group.example.id  # Adjust to your resource group resource
+}
