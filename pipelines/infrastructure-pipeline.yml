@@ -86,6 +86,8 @@ stages:
   - stage: Apply
     displayName: "Terraform Apply Stage"
     dependsOn: Plan
+    variables:
+      KV_NAME: "my-${{ parameters.environment }}-keyvault" # Reuse the Key Vault name in this stage
     jobs:
       - deployment: Apply
         displayName: "Apply Terraform for $(environment)"
@@ -113,3 +115,35 @@ stages:
                     inlineScript: |
                       # Apply the previously approved Terraform plan
                       terraform apply -auto-approve tfplan
+                      # Capture Terraform Outputs
+                      echo "##vso[task.setvariable variable=ACR_LOGIN_SERVER;isOutput=true]$(terraform output -raw acr_login_server)"
+                      echo "##vso[task.setvariable variable=POSTGRES_HOST;isOutput=true]$(terraform output -raw postgresql_host)"
+                      echo "##vso[task.setvariable variable=POSTGRES_DB;isOutput=true]$(terraform output -raw postgresql_database)"
+                      echo "##vso[task.setvariable variable=POSTGRES_USER;isOutput=true]$(terraform output -raw postgresql_username)"
+                      echo "##vso[task.setvariable variable=POSTGRES_PASSWORD;isOutput=true]$(terraform output -raw postgresql_password)"
+
+
+  - stage: StoreSecrets
+      displayName: "Store Secrets in Key Vault for ${{ parameters.environment }}"
+      dependsOn: ApplyInfrastructure
+      variables:
+        KV_NAME: "my-${{ parameters.environment }}-keyvault" # Reuse the Key Vault name in this stage
+      jobs:
+        - job: StoreSecretsJob
+          displayName: "Store Secrets for ${{ parameters.environment }}"
+          steps:
+           # Step to Store Secrets in Key Vault
+            - task: UseAzureCLI@2
+              inputs:
+                azureSubscription: 'your-azure-subscription'
+                scriptType: 'bash'
+                scriptLocation: 'inlineScript'
+                inlineScript: |
+                  echo "Storing secrets in Key Vault: $(KV_NAME)"
+                  az keyvault secret set --vault-name $(KV_NAME) --name "${{ parameters.environment }}-ACR-Login-Server" --value "$(ACR_LOGIN_SERVER)"
+                  az keyvault secret set --vault-name $(KV_NAME) --name "${{ parameters.environment }}-Postgres-Host" --value "$(POSTGRES_HOST)"
+                  az keyvault secret set --vault-name $(KV_NAME) --name "${{ parameters.environment }}-Postgres-DB" --value "$(POSTGRES_DB)"
+                  az keyvault secret set --vault-name $(KV_NAME) --name "${{ parameters.environment }}-Postgres-User" --value "$(POSTGRES_USER)"
+                  az keyvault secret set --vault-name $(KV_NAME) --name "${{ parameters.environment }}-Postgres-Password" --value "$(POSTGRES_PASSWORD)"
+
+

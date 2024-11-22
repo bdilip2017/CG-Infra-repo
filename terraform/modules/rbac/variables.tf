@@ -1,14 +1,14 @@
-variable "resource_id" {
-  description = "The ID of the resource to assign roles to (e.g., AKS cluster ID)"
+variable "aks_id" {
+  description = "The ID of the AKS cluster"
   type        = string
 }
 
-variable "contributor_group_id" {
-  description = "Object ID of the AAD group with Contributor access"
+variable "contributor_user_id" {
+  description = "Azure Active Directory user ID or Service Principal ID for Contributor role"
   type        = string
 }
 
-variable "reader_group_id" {
-  description = "Object ID of the AAD group with Reader access"
+variable "reader_user_id" {
+  description = "Azure Active Directory user ID or Service Principal ID for Reader role"
   type        = string
 }
