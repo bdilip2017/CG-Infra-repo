@@ -7,6 +7,7 @@ resource "azurerm_postgresql_server" "postgres" {
   administrator_login          = var.db_user
   administrator_login_password = var.db_password
   version             = "11"
+  tags                = var.tags
 
   threat_detection_policy {
     enabled                     = true

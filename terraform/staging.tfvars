@@ -6,5 +6,8 @@ aks_name = "my-aks-stg"
 db_name = "mydb-stg"
 db_user = "adminuser"
 db_password = "securePassword789"
-contributor_group_id = "<Object ID of AKS_Contributor_Group_stg>"
-reader_group_id      = "<Object ID of AKS_Reader_Group_stg>"
+contributor_user_id = "<Object ID of AKS_Contributor_Group_stg>"
+reader_user_id            = "<Object ID of AKS_Reader_Group_stg>"
+tags = {
+  Environment = "UAT"
+}

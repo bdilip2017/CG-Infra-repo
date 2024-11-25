@@ -1,5 +1,5 @@
 output "db_host" {
-  value = azurerm_postgresql_server.postgres.fully_qualified_domain_name
+  value = azurerm_postgresql_server.postgres.fqdn
 }
 
 output "db_user" {
@@ -9,4 +9,10 @@ output "db_user" {
 output "db_password" {
   value     = var.db_password
   sensitive = true
+}
+
+# Output Postgres Database Name
+output "db_name" {
+  description = "The database name of the PostgreSQL server"
+  value       = azurerm_postgresql_database.db.name
 }

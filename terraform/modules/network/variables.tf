@@ -12,3 +12,8 @@ variable "vnet_name" {
   description = "Virtual Network name"
   type        = string
 }
+variable "tags" {
+  description = "Tags for ACR"
+  type        = map(string)
+  default     = {}
+}

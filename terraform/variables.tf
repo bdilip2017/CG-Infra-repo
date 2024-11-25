@@ -34,12 +34,17 @@ variable "db_password" {
   sensitive   = true
 }
 
-variable "contributor_group_id" {
-  description = "Object ID for the Contributor AAD group"
+variable "contributor_user_id" {
+  description = "The Azure Active Directory user ID for Contributor role on AKS"
   type        = string
 }
 
-variable "reader_group_id" {
-  description = "Object ID for the Reader AAD group"
+variable "reader_user_id" {
+  description = "The Azure Active Directory user ID for Reader role on AKS"
   type        = string
+}
+
+variable "tags" {
+  description = "Tags to be applied to all resources"
+  type        = map(string)
 }

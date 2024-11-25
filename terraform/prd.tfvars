@@ -6,5 +6,8 @@ aks_name = "my-aks-prod"
 db_name = "mydb-prod"
 db_user = "adminuser"
 db_password = "securePassword456"
-contributor_group_id = "<Object ID of AKS_Contributor_Group_Prod>"
-reader_group_id      = "<Object ID of AKS_Reader_Group_Prod>"
+contributor_user_id = "<Object ID of AKS_Contributor_Group_Prod>"
+reader_user_id            = "<Object ID of AKS_Reader_Group_Prod>"
+tags = {
+  Environment = "Production"
+}

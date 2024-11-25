@@ -33,3 +33,9 @@ variable "log_analytics_workspace_id" {
   description = "Log Analytics Workspace ID for monitoring"
   type        = string
 }
+
+variable "tags" {
+  description = "Tags for ACR"
+  type        = map(string)
+  default     = {}
+}
